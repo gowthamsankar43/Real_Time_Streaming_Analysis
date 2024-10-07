@@ -5,7 +5,7 @@ from pyspark.sql.types import *
 
 # COMMAND ----------
 
-# MAGIC %%sql
+# MAGIC
 # MAGIC %sql
 # MAGIC create catalog if not exists streamingdataprocess;
 # MAGIC use catalog streamingdataprocess;
@@ -34,10 +34,10 @@ df = spark.readStream \
 df.display()
 
 df.writeStream\
-    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streaming/bronze")\
+    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streamingdataprocess/bronze")\
     .outputMode("append")\
     .format("delta")\
-    .toTable("streaming.bronze.tolldata")
+    .toTable("streamingdataprocess.bronze.tolldata")
      
 
 # COMMAND ----------
