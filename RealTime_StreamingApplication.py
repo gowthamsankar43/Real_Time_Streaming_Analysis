@@ -12,3 +12,41 @@ from pyspark.sql.types import *
 # MAGIC create schema if not exists bronze;
 # MAGIC create schema if not exists silver;
 # MAGIC create schema if not exists gold;
+
+# COMMAND ----------
+
+connectionString = ""
+eventHubName = "generate_data "
+
+ehConf = {
+  'eventhubs.connectionString' : sc._jvm.org.apache.spark.eventhubs.EventHubsUtils.encrypt(connectionString),
+  'eventhubs.eventHubName': eventHubName
+}
+
+# COMMAND ----------
+
+df = spark.readStream \
+    .format("eventhubs") \
+    .options(**ehConf) \
+    .load() \
+
+# Displaying stream: Show the incoming streaming data for visualization and debugging purposes
+df.display()
+
+df.writeStream\
+    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streaming/bronze")\
+    .outputMode("append")\
+    .format("delta")\
+    .toTable("streaming.bronze.tolldata")
+     
+
+# COMMAND ----------
+
+schema = StructType([
+    StructField("id", StringType(), True),
+    StructField("vehicle_id", StringType(), True), 
+    StructField("vehicle_type", StringType(), True), 
+    StructField("timestamp", StringType(), True), 
+    StructField("location", StringType(), True), 
+    StructField("amount", StringType(), True)
+    ])
