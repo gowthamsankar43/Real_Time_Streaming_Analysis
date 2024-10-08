@@ -43,40 +43,56 @@ df.writeStream\
 # COMMAND ----------
 
 schema = StructType([
-    StructField("entryTime", StringType(), True),
+    StructField("entryTime", TimestampType(), True),
     StructField("carModel", StructType([
         StructField("make", StringType(), True),
         StructField("model", StringType(), True),
         StructField("vehicleType", StringType(), True),
-        StructField("vehicleWeight", StringType(), True),
+        StructField("vehicleWeight", IntegerType(), True),
     ]), True), 
     StructField("state", StringType(), True), 
-    StructField("tollAmount", StringType(), True), 
-    StructField("tollId", StringType(), True), 
+    StructField("tollAmount", FloatType(), True), 
+    StructField("tollId", IntegerType(), True), 
     StructField("licensePlate", StringType(), True)
     ])
 
 # COMMAND ----------
 
+df2 = spark.readStream \
+    .format("delta")\
+    .table("bronze.tolldata") \
+    .withColumn('body', col('body').cast(StringType())) \
+    .withColumn('body', from_json(col('body'), schema)) \
+    .select("body.entryTime", "body.carModel.make", "body.carModel.model", "body.carModel.vehicleType", "body.carModel.vehicleWeight", "body.state", "body.tollAmount", "body.tollId", "body.licensePlate")
 
-df = spark.read.table("bronze.tolldata")\
-    .withColumn('body',col('body').cast(StringType()))\
-    .withColumn('body',from_json(col('body'),schema))\
-    .select('body.entryTime'as entryTime,'body.carModel.make','body.carModel.model','body.carModel.vehicleType','body.carModel.vehicleWeight','body.state','body.tollAmount','body.tollId','body.licensePlate')
-display(df)
+df2.display()
+
+df2.writeStream \
+    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streamingdataprocess/silver") \
+    .outputMode("append") \
+    .format("delta") \
+    .toTable("streamingdataprocess.silver.processeddata")
+
 
 # COMMAND ----------
 
-df = spark.readstream\
-    .table("bronze.tolldata")\
-    .withColumn('body',col('body').cast(StringType()))\
-    .withColumn('body',from_json(col('body'),schema))\
-    .select('body.entryTime'as entryTime,'body.carModel.make','body.carModel.model','body.carModel.vehicleType','body.carModel.vehicleWeight','body.state','body.tollAmount','body.tollId','body.licensePlate')
+from pyspark.sql.functions import sum, count
+
+df = spark.readStream \
+    .format("delta") \
+    .table("silver.processeddata") \
+    .withWatermark("entryTime", "10 minutes") \
+    .groupBy(window("entryTime", "10 minutes")) \
+    .agg(
+        avg("tollAmount").alias("AvgTollAmount"),
+        count("licensePlate").alias("CountOfVehicles")
+    ) \
+    .select("window.start","window.end", "AvgTollAmount", "CountOfVehicles") \
 
 display(df)
 
-df.writestream\
-    .format("Delta")\
-    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streamingdataprocess/silver")
-    .outputMode("append")\
-    .toTable("silver.ProcessedData")
+df.writeStream \
+    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streamingdataprocess/gold") \
+    .outputMode("complete") \
+    .format("delta") \
+    .toTable("streamingdataprocess.gold.tollsummarydata")
