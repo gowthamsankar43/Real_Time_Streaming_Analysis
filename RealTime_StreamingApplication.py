@@ -43,10 +43,40 @@ df.writeStream\
 # COMMAND ----------
 
 schema = StructType([
-    StructField("id", StringType(), True),
-    StructField("vehicle_id", StringType(), True), 
-    StructField("vehicle_type", StringType(), True), 
-    StructField("timestamp", StringType(), True), 
-    StructField("location", StringType(), True), 
-    StructField("amount", StringType(), True)
+    StructField("entryTime", StringType(), True),
+    StructField("carModel", StructType([
+        StructField("make", StringType(), True),
+        StructField("model", StringType(), True),
+        StructField("vehicleType", StringType(), True),
+        StructField("vehicleWeight", StringType(), True),
+    ]), True), 
+    StructField("state", StringType(), True), 
+    StructField("tollAmount", StringType(), True), 
+    StructField("tollId", StringType(), True), 
+    StructField("licensePlate", StringType(), True)
     ])
+
+# COMMAND ----------
+
+
+df = spark.read.table("bronze.tolldata")\
+    .withColumn('body',col('body').cast(StringType()))\
+    .withColumn('body',from_json(col('body'),schema))\
+    .select('body.entryTime'as entryTime,'body.carModel.make','body.carModel.model','body.carModel.vehicleType','body.carModel.vehicleWeight','body.state','body.tollAmount','body.tollId','body.licensePlate')
+display(df)
+
+# COMMAND ----------
+
+df = spark.readstream\
+    .table("bronze.tolldata")\
+    .withColumn('body',col('body').cast(StringType()))\
+    .withColumn('body',from_json(col('body'),schema))\
+    .select('body.entryTime'as entryTime,'body.carModel.make','body.carModel.model','body.carModel.vehicleType','body.carModel.vehicleWeight','body.state','body.tollAmount','body.tollId','body.licensePlate')
+
+display(df)
+
+df.writestream\
+    .format("Delta")\
+    .option("checkpointLocation", "/dbfs/tmp/checkpoints/streamingdataprocess/silver")
+    .outputMode("append")\
+    .toTable("silver.ProcessedData")
