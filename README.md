@@ -5,7 +5,7 @@ EventHub_Stream_Data_Analysis
 
 **Azure Databricks (Transform)**:
 
-			<b>PySpark<b>: Processes and transforms data using distributed computing capabilities, enabling efficient handling of large datasets.
+			*PySpark*: Processes and transforms data using distributed computing capabilities, enabling efficient handling of large datasets.
 
 			**Delta Table**: Stores intermediate or final processed data with ACID transactions, ensuring data consistency and reliability.
 
